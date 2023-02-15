@@ -4,14 +4,24 @@
 #include "GyverEncoder.h"
 #include <GyverStepper.h>
 #include <max6675.h>
-#include <GyverPID.h>
+#include <GyverPID2.h>
+
+// tune
+#include "PIDtuner.h"
+PIDtuner2 tuner;
+
+
+const int freq = 25000; 
+const int ledChannel = 0; 
+const int resolution = 8;
 
 GStepper<STEPPER2WIRE> stepper(200, stepperDIR, stepperSTEP);
 GyverTM1637 disp(CLKDIS, DIO);
 Encoder enc1(CLK, DT, SW);
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 hw_timer_t *Bottler = NULL;
-GyverPID regulator(0.1, 0.05, 0.01, 10);
+GyverPID regulator(5, 0.2, 15, 500);
+
 
 
 unsigned int values[2] = {1, 1};
@@ -44,10 +54,16 @@ void setup() {
   timerAttachInterrupt(Bottler, &onTimer, true);
   timerAlarmWrite(Bottler, 800, true);
   timerAlarmEnable(Bottler);
+  
+  ledcSetup(ledChannel, freq, resolution);
+  ledcAttachPin(TCO, ledChannel);
 
+  regulator.setDirection(NORMAL);
+  regulator.setpoint = 220;
+  regulator.setLimits(0, 255);
 
-  // regulator.setpoint = 120;
-  pinMode(TCO, OUTPUT);
+  tuner.setParameters(NORMAL, 0, 30, 500, 2, 500);
+  
 }
 
 
@@ -77,17 +93,24 @@ void loop() {
   
 
 if (setting==0){
-  if ( millis() - timer2 >= 1000) {
+  if ( millis() - timer2 >= 100) {
+
+
+
 
     timer2 = millis();
     temperature = thermocouple.readCelsius(); 
-    // regulator.input = temperature;
-    // analogWrite(TCO, regulator.output);
-    if (temperature > values[0]){
-      analogWrite(TCO, LOW);
-    } else
-      analogWrite(TCO, HIGH);
+    regulator.input = temperature;
+    // Serial.println(regulator.getResult());
+    
     disp.displayInt(temperature);
+
+    // TUNE
+    tuner.setInput(temperature);
+    tuner.compute();
+    ledcWrite(ledChannel, tuner.getOutput());
+    // tuner.compute();
+    tuner.debugText();
   }
 }
 
@@ -100,7 +123,8 @@ if (setting==0){
       timerAlarmEnable(Bottler);
 
       // temperature
-      // regulator.setpoint = values[0];
+      regulator.setpoint = values[0];
+      
 
       setting = false;
   }

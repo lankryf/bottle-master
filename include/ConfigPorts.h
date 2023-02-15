@@ -8,4 +8,4 @@
 #define thermoCLK 26
 #define stepperSTEP 12
 #define stepperDIR 14
-#define TCO 27 // ThermoControlOut 
+#define TCO 32 // ThermoControlOut 
