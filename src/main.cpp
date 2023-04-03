@@ -5,10 +5,11 @@
 #include <GyverStepper.h>
 #include <max6675.h>
 #include <GyverPID.h>
+#include <EEPROM.h>
 
-// tune
-// #include "PIDtuner2.h"
-// PIDtuner2 tuner;
+#define INIT_ADDR 90
+#define INIT_KEY 50
+
 
 const int freq = 25000;
 const int ledChannel = 0;
@@ -26,16 +27,32 @@ int temperature = 0;
 unsigned int status = 0;
 uint32_t timer, timer2, timer3;
 unsigned int setting = false;
+bool work = false;
 
 void IRAM_ATTR onTimer()
 {
-  // stepper.setSpeed(10 * values[1]);
   stepper.tick();
 }
 
 void setup()
 {
   Serial.begin(9600);
+
+  // eeprom
+  EEPROM.begin(100);
+  if (EEPROM.read(INIT_ADDR) != INIT_KEY) {
+    EEPROM.write(INIT_ADDR, INIT_KEY);
+
+    EEPROM.put(0, 180);
+    EEPROM.commit();
+    EEPROM.put(10, 20);
+    EEPROM.commit();
+  }
+
+  EEPROM.get(0, values[0]);
+  EEPROM.get(10, values[1]);
+
+
   enc1.setType(TYPE1);
   enc1.setFastTimeout(40);
   disp.clear();
@@ -43,30 +60,41 @@ void setup()
   pinMode(TCO, OUTPUT);
 
   // engine
+  int eepromTemp, eepromEngine;
+
+  EEPROM.get(0, eepromTemp);
+  EEPROM.get(1, eepromEngine);
+
+
   stepper.setRunMode(KEEP_SPEED);
   stepper.setMaxSpeed(1700);
   stepper.setSpeed(200);
-  values[1] = 20;
   Bottler = timerBegin(0, 80, true);
   timerAttachInterrupt(Bottler, &onTimer, true);
   timerAlarmWrite(Bottler, 800, true);
   timerAlarmEnable(Bottler);
 
+
+  // pid for termocouple
+
+  regulator.setpoint = values[0];
+  regulator.setDirection(NORMAL);
+
   ledcSetup(ledChannel, freq, resolution);
   ledcAttachPin(TCO, ledChannel);
 
-  regulator.setDirection(NORMAL);
-  regulator.setpoint = 180;
   regulator.setLimits(0, 255);
 
-  // tuner.setParameters(NORMAL, 0, 10, 500, 3, 50);
+  // indicator
+  pinMode(workIndicator, OUTPUT);
+
 }
 
 void loop()
 {
 
   enc1.tick();
-  // stepper.tick();
+
 
   if (enc1.isRight())
     values[status]++;
@@ -74,10 +102,21 @@ void loop()
   if (enc1.isLeft())
     values[status]--;
 
-  if (enc1.isPress())
+  if (enc1.isHolded())
   {
     status = !status;
   }
+  if (enc1.isRelease()){
+    work = !work;
+    if (!work){
+      timerStop(Bottler);
+      digitalWrite(workIndicator, LOW);
+    } else {
+      timerStart(Bottler);
+      digitalWrite(workIndicator, HIGH);
+    }
+  }
+
   values[0] = constrain(values[0], 180, 250);
   values[1] = constrain(values[1], 1, 100);
 
@@ -87,7 +126,7 @@ void loop()
     temperature = thermocouple.readCelsius();
     regulator.input = temperature;
   }
-
+  
   ledcWrite(ledChannel, regulator.getResult());
 
   if (enc1.isTurn() || enc1.isRelease())
@@ -107,9 +146,13 @@ void loop()
 
 
 
-  if (setting && millis() - timer >= 3000)
+  if (setting && millis() - timer >= 6000)
   {
     timer = millis();
+    EEPROM.put(0, values[0]);
+    EEPROM.commit();
+    EEPROM.put(10, values[1]);
+    EEPROM.commit(); 
 
     // engine
     timerAlarmDisable(Bottler);

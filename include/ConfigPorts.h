@@ -9,3 +9,4 @@
 #define stepperSTEP 12
 #define stepperDIR 14
 #define TCO 32 // ThermoControlOut 
+#define workIndicator 5
