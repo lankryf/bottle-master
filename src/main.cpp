@@ -15,15 +15,15 @@ const int freq = 25000;
 const int ledChannel = 0;
 const int resolution = 8;
 
-GStepper<STEPPER2WIRE> stepper(200, stepperDIR, stepperSTEP);
+GStepper<STEPPER2WIRE> stepper(1200, stepperDIR, stepperSTEP);
 GyverTM1637 disp(CLKDIS, DIO);
 Encoder enc1(CLK, DT, SW);
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 hw_timer_t *Bottler = NULL;
-GyverPID regulator(5, 0.2, 15, 50);
+GyverPID regulator(3, 10, 90, 50);
 
 unsigned int values[2] = {1, 1};
-int temperature = 0;
+float temperature = 0;
 unsigned int status = 0;
 uint32_t timer, timer2, timer3;
 unsigned int setting = false;
@@ -105,6 +105,8 @@ void loop()
   if (enc1.isHolded())
   {
     status = !status;
+    disp.displayInt(values[status] * (1 - 2 * status));
+    Serial.print('\r', values[status] * (1 - 2 * status));
   }
   if (enc1.isRelease()){
     work = !work;
@@ -141,12 +143,16 @@ void loop()
   {
     timer2 = millis();
     disp.displayInt(temperature);
-    Serial.println(temperature);
+    Serial.print(temperature);
+    Serial.print('-');
+    Serial.print(values[0]);
+    Serial.print('-');
+    Serial.println(regulator.getResult());
   }
 
 
 
-  if (setting && millis() - timer >= 6000)
+  if (setting && millis() - timer >= 3000)
   {
     timer = millis();
     EEPROM.put(0, values[0]);
