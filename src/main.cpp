@@ -59,7 +59,7 @@ void setup()
   disp.brightness(3);
   pinMode(TCO, OUTPUT);
 
-  // engine
+  // engine setting
   int eepromTemp, eepromEngine;
 
   EEPROM.get(0, eepromTemp);
