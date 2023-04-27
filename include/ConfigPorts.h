@@ -1,5 +1,7 @@
+//screen
 #define CLKDIS 4
 #define DIO 2
+
 #define CLK 18
 #define DT 19
 #define SW 21
