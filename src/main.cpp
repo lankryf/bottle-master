@@ -119,7 +119,7 @@ void loop()
     }
   }
 
-  values[0] = constrain(values[0], 180, 250);
+  values[0] = constrain(values[0], 50, 250);
   values[1] = constrain(values[1], 1, 100);
 
   if (millis() - timer3 >= 200)
